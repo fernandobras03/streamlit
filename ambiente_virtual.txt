@@ -1,0 +1,6 @@
+#Para criação do ambiente virtual utiliza-se as seguintes etapas:
+    ##1- Abra o Anaconda Prompt e digite o comando: conda create --name streamlit-2025 python=3.11 (Verificar versão do Python instalada e mais atual no computador)
+    ##2- com a criação do ambiente virtual no VS code aperte Ctrl + Shift + P, abrirá o "open quick access" e então selecione "Python: Select Interpreter", na lista que abrirá
+    uma serie de ambientes virtuais criados, então selecione o "streamlit-2025", no caso, foi o que criamos lá no prompt de comando.
+    ##Após isso, no terminal, selecione opção "+" e selecione o "command prompt", pronto nesse caso já é para aparecer que você está dentro do ambiente.
+    Exemplo: (4.1_STREAMLIT) C:\Users\fernando.cruz\Documents\4- AMBIENTES VIRTUAIS\4.1_STREAMLIT>streamlit run main.py 
