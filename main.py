@@ -27,9 +27,22 @@ if file_upload:
     #Visão instituição
     exp2 = st.expander("Instituições")
     df_instituicao = df.pivot_table(index="Data", columns="Instituição", values="Valor")
-    exp2.dataframe(df_instituicao)
-    exp2.line_chart(df_instituicao)
 
-    #obtem a última data de dados
-    last_dt = df_instituicao.sort_index().iloc[-1]
-    exp2.bar_chart(last_dt)
+    #Abas para diferentes visualizações
+    tab_data, tab_history, tab_share = exp2.tabs(["Dados", "Histórico", "Participação"])
+
+    #Exibe Dataframe
+    tab_data.dataframe(df_instituicao)
+
+    #Exibe Histórico
+    with tab_history:
+        st.line_chart(df_instituicao)
+
+    #Exibe distribuicao
+    with tab_share:
+        
+        #Filtro de data
+        date = st.selectbox("Filtro Data", options=df_instituicao.index)
+
+        #Gráfico de distribuição
+        st.bar_chart(df_instituicao.loc[date])
