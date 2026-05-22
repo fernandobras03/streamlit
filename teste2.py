@@ -2,160 +2,278 @@ import streamlit as st
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
-from datetime import date
+import io
 
-# Configurações da Página
-st.set_page_config(page_title="Relatório SISATEG - CNA", layout="wide")
+# ──────────────────────────────────────────────
+# Configuração da Página
+# ──────────────────────────────────────────────
+st.set_page_config(
+    page_title="CNA · SISATEG (Pessoas)",
+    page_icon="🏢",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
+# ──────────────────────────────────────────────
+# Estilos Customizados (UI/UX Clean & Contraste)
+# ──────────────────────────────────────────────
 st.markdown("""
-    <style>
-    .stButton>button {
-        width: 100%;
-        background-color: #004a87;
-        color: white;
-        font-weight: bold;
-        height: 3em;
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+        background-color: #f8fafc;
     }
-    </style>
-    """, unsafe_allow_html=True)
 
-def main():
-    st.title("📊 Consulta de Visitas SISATEG")
-    st.info("Extração de grandes volumes via SearchAfter (id_visita)")
-
-    with st.sidebar:
-        st.header("🔑 Credenciais")
-        user_input = st.text_input("Usuário")
-        pass_input = st.text_input("Senha", type="password")
-
-    st.subheader("📅 Período da Consulta")
-    col1, col2 = st.columns(2)
-    with col1:
-        dt_inicio = st.date_input("Data Inicial", value=date(2026, 1, 1))
-    with col2:
-        dt_fim = st.date_input("Data Final", value=date.today())
-
-    nomes_amigaveis = {
-        "uf_regional": "UF",
-        "municipio_propriedade": "Município",
-        "grupo_produtor": "Grupo Produtor",
-        "id_tecnico_atual": "Id. Técnico Atual",
-        "id_produtor": "ID Produtor",
-        "id_propriedade": "ID Propriedade",
-        "ind_sustentabilidade_1": "Ind. Sustentabilidade 1",
-        "ind_sustentabilidade_2": "Ind. Sustentabilidade 2",
-        "produtor": "Produtor",
-        "cpf_produtor": "CPF",
-        "imovel": "Imóvel",
-        "area_total": "Área total propriedade",
-        "area_produtiva_cadastrada": "Área Total Produtiva",
-        "area_arrendada": "Área Arrendada",
-        "perfil_fundiario": "Perfil fundiário",
-        "dt_visita": "Data da Visita",
-        "ordem_visita": "Ordem da Visita no Dia",
-        "numero_visita": "Nº da Visita",
-        "projeto": "Projeto",
-        "qtd_lancamentos": "Lançamentos",
-        "qtd_ir": "IR",
-        "visita_zero": "Dat. Visita Zero",
-        "qtd_visitas": "Qtd. Visitas",
-        "dt_primeira_visita_projeto": "Primeira Visita no Projeto",
-        "qtd_visitas_projeto": "Qtd. Visitas no Projeto",
-        "pendencia_ir": "Pendencia IR",
-        "qtd_orientacao": "Orientações na Visita",
-        "qtd_planejamento": "Planejamentos",
-        "atividade": "Atividade",
-        "supervisor_atual": "Supervisor Atual",
-        "supervisor_anterior": "Supervisor Anterior",
-        "tecnico_atual": "Técnico Atual",
-        "tecnico_responsavel": "Técnico Responsável pela Visita",
-        "dt_sincronizacao": "Ultima Sincronização",
-        "dt_checkin": "Data do Checkin",
-        "dt_checkout": "Data do Checkout",
-        "duracao_visita": "Duração da Visita",
-        "flg_coleta_dados": "Coleta de Dados",
-        "visita_retorno": "Visita Retorno",
-        "visita_virtual": "Atendimento Remoto",
-        "flg_primeira_visita": "Visita Zero",
-        "visita_valida": "Visita Válida?",
-        "id_visita": "ID Visita Interno" # Adicionado para servir de âncora no SORT
+    /* Sidebar com melhor contraste para inputs */
+    section[data-testid="stSidebar"] {
+        background-color: #e2e8f0;
+        border-right: 1px solid #cbd5e1;
     }
     
-    colunas_tecnicas = list(nomes_amigaveis.keys())
+    /* Inputs de texto muito mais visíveis */
+    .stTextInput input {
+        background-color: #ffffff !important;
+        border: 1px solid #64748b !important;
+        color: #0f172a !important;
+        border-radius: 6px;
+        padding: 0.5rem;
+    }
+    .stTextInput input:focus {
+        border-color: #004a87 !important;
+        box-shadow: 0 0 0 2px rgba(0, 74, 135, 0.2) !important;
+    }
 
-    if st.button("🔍 Gerar Relatório"):
-        if not user_input or not pass_input:
-            st.error("Informe as credenciais.")
-        else:
-            all_hits = []
-            search_after = None
-            status_text = st.empty()
+    /* Botão de Ação Principal (Azul CNA) */
+    div.stButton > button {
+        width: 100%;
+        background-color: #004a87;
+        color: #ffffff !important;
+        font-weight: 600;
+        font-size: 1rem;
+        padding: 0.6em 1em;
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 74, 135, 0.2);
+        transition: all 0.2s ease;
+    }
+    div.stButton > button:hover {
+        background-color: #00356b;
+        box-shadow: 0 10px 15px -3px rgba(0, 74, 135, 0.3);
+        transform: translateY(-1px);
+    }
+
+    /* Cards de Métricas Estilizados */
+    [data-testid="stMetric"] {
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border-left: 5px solid #004a87;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #475569;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    /* Títulos */
+    h1, h2, h3 {
+        color: #0f172a;
+        font-weight: 700;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ──────────────────────────────────────────────
+# Constantes de Configuração
+# ──────────────────────────────────────────────
+API_URL = "https://api-corp.cna.org.br/sisateg_pessoa/_search"
+PAGE_SIZE = 10_000
+
+COLUNAS = {
+    "categoria_pessoa": "Categoria da Pessoa",
+    "celular": "Celular",
+    "cep": "CEP",
+    "cpf": "CPF",
+    "dt_alteracao": "Data da Última Alteração",
+    "dt_exclusao": "Data de Exclusão",
+    "estado_civil": "Estado Civil",
+    "id_pessoa": "ID da Pessoa",
+    "nome": "Nome Completo",
+    "status_pessoa": "Status pessoa",
+    "uf_regional": "UF Regional",
+}
+
+# ──────────────────────────────────────────────
+# Lógica de Extração
+# ──────────────────────────────────────────────
+def buscar_todos_os_registros(usuario: str, senha: str) -> pd.DataFrame:
+    all_hits = []
+    search_after = None
+
+    while True:
+        query_json = {
+            "size": PAGE_SIZE,
+            "_source": list(COLUNAS.keys()),
+            "query": {
+                "match_all": {}
+            },
+            "sort": [
+                {"id_pessoa": "asc"}
+            ],
+        }
+
+        if search_after:
+            query_json["search_after"] = search_after
+
+        response = requests.post(
+            API_URL,
+            json=query_json,
+            auth=HTTPBasicAuth(usuario, senha),
+            timeout=120,
+        )
+
+        if response.status_code == 401:
+            st.error("❌ Falha de Autenticação. Verifique seu usuário e senha.")
+            return pd.DataFrame()
+
+        if response.status_code != 200:
+            st.error(f"❌ Erro de Comunicação (Status {response.status_code}): {response.text}")
+            return pd.DataFrame()
+
+        res_data = response.json()
+        hits = res_data.get("hits", {}).get("hits", [])
+
+        if not hits:
+            break
+
+        all_hits.extend(hits)
+        search_after = hits[-1].get("sort")
+
+        if len(hits) < PAGE_SIZE:
+            break
+
+    if not all_hits:
+        return pd.DataFrame()
+
+    flat_data = [item["_source"] for item in all_hits]
+    df = pd.DataFrame(flat_data, columns=list(COLUNAS.keys()))
+    df = df.rename(columns=COLUNAS)
+    
+    # Tratamento de dados vazios garantindo que não quebre a interface
+    if "Status pessoa" in df.columns:
+        df["Status pessoa"] = df["Status pessoa"].fillna("NÃO INFORMADO").astype(str).str.strip().str.upper()
+        df.loc[df["Status pessoa"].isin(["NAN", "NONE", "", "NULL"]), "Status pessoa"] = "NÃO INFORMADO"
+        
+    if "Categoria da Pessoa" in df.columns:
+        df["Categoria da Pessoa"] = df["Categoria da Pessoa"].fillna("NÃO INFORMADO").astype(str).str.strip().str.upper()
+        df.loc[df["Categoria da Pessoa"].isin(["NAN", "NONE", "", "NULL"]), "Categoria da Pessoa"] = "NI"
+
+    return df
+
+# ──────────────────────────────────────────────
+# Interface e Fluxo Principal
+# ──────────────────────────────────────────────
+def main():
+    with st.sidebar:
+        st.image(
+            "https://i.ibb.co/ZzLmGh8X/Logo-Senar-Preferencial-RGB.png",
+            width=160,
+        )
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("🔐 Autenticação")
+        usuario = st.text_input("Usuário", placeholder="Ex: fernando.cruz")
+        senha = st.text_input("Senha", type="password", placeholder="••••••••")
+        st.divider()
+        st.caption("Acesso à base corporativa `sisateg_pessoa`")
+
+    st.title("📋 Painel SISATEG — Pessoas")
+    st.markdown("Consulte e exporte a base de dados completa de cadastros integrados ao sistema.")
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if st.button("🚀 Iniciar Extração Completa", use_container_width=True):
+        if not usuario or not senha:
+            st.warning("⚠️ Operação interrompida: Credenciais ausentes na barra lateral.")
+            st.stop()
+
+        try:
+            # Spinner limpo e sem histórico
+            with st.spinner("Extraindo informações do servidor. Isso pode levar alguns minutos..."):
+                st.session_state['df_pessoas'] = buscar_todos_os_registros(usuario, senha)
             
-            try:
-                url = "https://api-corp.cna.org.br/sisateg_rel_listar_visita/_search"
-                
-                while True:
-                    query_json = {
-                        "size": 10000,
-                        "_source": colunas_tecnicas,
-                        "query": {
-                            "range": {
-                                "dt_visita": {
-                                    "gte": dt_inicio.strftime('%Y-%m-%d'),
-                                    "lte": dt_fim.strftime('%Y-%m-%d'),
-                                    "format": "yyyy-MM-dd"
-                                }
-                            }
-                        },
-                        "sort": [
-                            {"dt_visita": "asc"},
-                            {"id_visita": "asc"} # Uso de campo de negócio para ordenação
-                        ]
-                    }
+            if not st.session_state['df_pessoas'].empty:
+                st.success("✅ Carga finalizada com sucesso!")
+        except Exception as e:
+            st.error(f"❌ Erro operacional: {e}")
+            st.stop()
 
-                    if search_after:
-                        query_json["search_after"] = search_after
+    if 'df_pessoas' in st.session_state and not st.session_state['df_pessoas'].empty:
+        df_orig = st.session_state['df_pessoas']
 
-                    response = requests.post(
-                        url, 
-                        json=query_json, 
-                        auth=HTTPBasicAuth(user_input, pass_input),
-                        timeout=120
-                    )
+        # ── KPI Cards ──
+        # st.markdown("### 📊 Indicadores Principais")
+        # kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        
+        # total_rows = len(df_orig)
+        # kpi1.metric("Total Cadastrado", f"{total_rows:,}".replace(",", "."))
+        
+        # if "Status Pessoa" in df_orig.columns:
+        #     ativos = df_orig["Status pessoa"].eq("ATIVO").sum()
+        #     kpi2.metric("Pessoas Ativas", f"{ativos:,}".replace(",", "."))
+        # else:
+        #     kpi2.metric("Pessoas Ativas", "0")
+            
+        # if "Categoria da Pessoa" in df_orig.columns:
+        #     categorias_distintas = df_orig["Categoria da Pessoa"].nunique()
+        #     kpi3.metric("Tipos de categoria", categorias_distintas)
+        # else:
+        #     kpi3.metric("Tipos de Categoria", "0")
+            
+        # ── Seção de Filtros Dinâmicos ──
+        df_filtrado = df_orig.copy()
+        
+        with st.expander("🔎 Filtrar Base de Dados", expanded=True):
+            f_col1, f_col2 = st.columns(2)
+            
+            with f_col1:
+                if "Status pessoa" in df_orig.columns:
+                    opcoes_status = sorted(df_orig["Status pessoa"].unique())
+                    status_sel = st.multiselect("Filtrar por Status:", options=opcoes_status, default=opcoes_status)
+                    if status_sel:
+                        df_filtrado = df_filtrado[df_filtrado["Status pessoa"].isin(status_sel)]
+                        
+            with f_col2:
+                if "Categoria da Pessoa" in df_orig.columns:
+                    opcoes_categoria = sorted(df_orig["Categoria da Pessoa"].unique())
+                    categoria_sel = st.multiselect("Filtrar por Categoria:", options=opcoes_categoria, default=opcoes_categoria)
+                    if categoria_sel:
+                        df_filtrado = df_filtrado[df_filtrado["Categoria da Pessoa"].isin(categoria_sel)]
 
-                    if response.status_code != 200:
-                        st.error(f"Erro na API ({response.status_code}): {response.text}")
-                        break
+        # ── Data View e Exportação ──
+        st.markdown("---")
+        st.markdown(f"**Prévia dos Dados** (Exibindo os primeiros 100 de {len(df_filtrado):,} registros filtrados)".replace(",", "."))
+        
+        st.dataframe(df_filtrado.head(100), use_container_width=True, height=350)
 
-                    res_data = response.json()
-                    hits = res_data.get('hits', {}).get('hits', [])
-                    
-                    if not hits:
-                        break
-                    
-                    all_hits.extend(hits)
-                    search_after = hits[-1].get("sort")
-                    
-                    status_text.text(f"Registros recuperados: {len(all_hits)}...")
-                    
-                    if len(hits) < 10000:
-                        break
+        buffer = io.BytesIO()
+        df_filtrado.to_csv(buffer, index=False, encoding="utf-8-sig")
+        buffer.seek(0)
 
-                if all_hits:
-                    flat_data = [item['_source'] for item in all_hits]
-                    df = pd.DataFrame(flat_data)
-                    df = df.rename(columns=nomes_amigaveis)
-
-                    st.success(f"✅ Total de {len(df)} registros recuperados.")
-                    st.dataframe(df.head(100))
-
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Baixar CSV Completo", csv, f"relatorio_{dt_inicio}.csv", "text/csv")
-                else:
-                    st.warning("Nenhum dado encontrado.")
-
-            except Exception as e:
-                st.error(f"Erro: {e}")
+        st.download_button(
+            label=f"📄 Exportar Base Filtrada ({len(df_filtrado):,} linhas)".replace(",", "."),
+            data=buffer,
+            file_name="exportacao_sisateg_pessoa.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
 if __name__ == "__main__":
     main()

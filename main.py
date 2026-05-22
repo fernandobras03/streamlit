@@ -46,3 +46,9 @@ if file_upload:
 
         #Gráfico de distribuição
         st.bar_chart(df_instituicao.loc[date])
+
+    df_data = df.groupby(by="Data")[["Valor"]].sum()
+    df_data["lag_1"] = df_data["Valor"].shift(1)
+    df_data["Diferença Mensal"] = df_data["Valor"] - df_data["lag_1"]
+
+    st.dataframe(df_data)

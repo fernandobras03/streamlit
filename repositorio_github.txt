@@ -1,0 +1,19 @@
+### ENVIO DE ARQUIVOS PARA O GITHUB ###
+
+Fazer download do Git no: https://git-scm.com/
+
+1- Após a instalação e criação do repositorio no GitHub abra um novo terminal
+
+2- Primeiro comando:
+    - git init .                                                                              #Inicia o envio do repositorio
+    - git branch -m main                                                                      #Renomear a ramificação
+    - criar um arquivo chamado ".gitignore" e adicionar a descrição "*.csv"                   #não enviará os arquivos csv
+    - git add .                                                                               #prepara as listas de mudanças
+    - git commit -m "mensagem aqui"                                                           #descrição do envio ou da alteração
+    - git remote add origin https://github.com/fernandobras03/streamlit.git                   #Destino de envio dos arquivos dentro do GitHub
+        
+3- Com a conexão feita para enviar novos arquivo o passo a passo é:
+
+    - git add .                                                                               #prepara a fila
+    - git commit -m "comentário"                                                              #Salva as informações do arquivo no momento
+    - git push origin main                                                                    #envia os arquivos
