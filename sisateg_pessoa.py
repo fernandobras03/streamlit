@@ -32,7 +32,7 @@ st.markdown("""
         border-right: 1px solid #cbd5e1;
     }
     
-    /* Inputs de texto muito mais visíveis */
+    /* Inputs de texto */
     .stTextInput input {
         background-color: #ffffff !important;
         border: 1px solid #64748b !important;
