@@ -3,7 +3,8 @@ import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
 import io
-from datetime import date
+from datetime import date, timedelta
+import time
 
 # ──────────────────────────────────────────────
 # Configuração da Página
@@ -16,7 +17,6 @@ st.set_page_config(
 )
 
 # Estilização visual (Clean & Light)
-
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -48,9 +48,9 @@ st.markdown("""
 
     /* A Tag selecionada (A caixinha do "TODOS") */
     span[data-baseweb="tag"] {
-        background-color: #e2e8f0 !important; /* Fundo cinza suave para destacar a tag */
-        color: #0f172a !important; /* Cor do texto da tag */
-        margin-left: 8px !important; /* Empurra a tag um pouco mais para a direita */
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important; 
+        margin-left: 8px !important; 
         border-radius: 4px;
     }
 
@@ -80,7 +80,6 @@ st.markdown("""
 # Constantes & Base de Dados Oficial
 # ──────────────────────────────────────────────
 API_URL = "https://api-corp.cna.org.br/sisateg_rel_listar_visita/_search"
-PAGE_SIZE = 10_000
 
 COLUNAS = {
     "ano_referencia_visita": "Ano Referência Visita",
@@ -130,117 +129,87 @@ LISTA_STATUS = ["TODOS", "ATIVA", "INATIVA"]
 # ──────────────────────────────────────────────
 # Extração Direto na Fonte (Otimizado via ElasticSearch Filter)
 # ──────────────────────────────────────────────
-def buscar_dados_otimizados(usuario, senha, dt_inicio, dt_fim, projeto_sel, atividade_sel, status_sel):
+@st.cache_data(ttl=1800, show_spinner=False)
+def buscar_dados_otimizados(_usuario, _senha, dt_inicio, dt_fim, projeto_sel, atividade_sel, status_sel):
     all_hits = []
     search_after = None
-    progresso_msg = st.empty()
-
-    # Filtro Obrigatório: Data da Visita
+    
+    # PAGE_SIZE reduzido para evitar travamento na deserialização
+    PAGE_SIZE_OTIMIZADO = 2000 
+    
     filtros_elastic = [
-        {
-            "range": {
-                "dt_visita": {
-                    "gte": dt_inicio,
-                    "lte": dt_fim,
-                    "format": "yyyy-MM-dd"
-                }
-            }
-        }
+        {"range": {"dt_visita": {"gte": dt_inicio, "lte": dt_fim, "format": "yyyy-MM-dd"}}}
     ]
 
-    # Injeta filtros adicionais no servidor caso o usuário tenha alterado o dropdown
     if projeto_sel and "TODOS" not in projeto_sel:
-        filtros_elastic.append({
-            "bool": {
-                "should": [{"match_phrase": {"projeto": p}} for p in projeto_sel],
-                "minimum_should_match": 1
-            }
-        })
-        
+        filtros_elastic.append({"bool": {"should": [{"match_phrase": {"projeto": p}} for p in projeto_sel], "minimum_should_match": 1}})
     if atividade_sel and "TODOS" not in atividade_sel:
-        filtros_elastic.append({
-            "bool": {
-                "should": [{"match_phrase": {"atividade": a}} for a in atividade_sel],
-                "minimum_should_match": 1
-            }
-        })
-        
+        filtros_elastic.append({"bool": {"should": [{"match_phrase": {"atividade": a}} for a in atividade_sel], "minimum_should_match": 1}})
     if status_sel and "TODOS" not in status_sel:
-        filtros_elastic.append({
-            "bool": {
-                "should": [{"match_phrase": {"status_propriedade": s}} for s in status_sel],
-                "minimum_should_match": 1
-            }
-        })
+        filtros_elastic.append({"bool": {"should": [{"match_phrase": {"status_propriedade": s}} for s in status_sel], "minimum_should_match": 1}})
+
+    query_base = {
+        "size": PAGE_SIZE_OTIMIZADO,
+        "_source": list(COLUNAS.keys()),
+        "query": {"bool": {"filter": filtros_elastic}},
+        "sort": [{"dt_visita": "asc"}, {"id_visita": "asc"}]
+    }
+
+    session = requests.Session()
+    session.auth = HTTPBasicAuth(_usuario, _senha)
+
+    progress_bar = st.progress(0, text="Iniciando extração na API...")
+    registros_extraidos = 0
 
     while True:
-        query_json = {
-            "size": PAGE_SIZE,
-            "_source": list(COLUNAS.keys()),
-            "query": {
-                "bool": {
-                    "filter": filtros_elastic
-                }
-            },
-            "sort": [
-                {"dt_visita": "asc"},
-                {"id_visita": "asc"} 
-            ]
-        }
-
         if search_after:
-            query_json["search_after"] = search_after
+            query_base["search_after"] = search_after
 
-        response = requests.post(
-            API_URL, 
-            json=query_json, 
-            auth=HTTPBasicAuth(usuario, senha), 
-            timeout=120
-        )
+        response = session.post(API_URL, json=query_base, timeout=120)
 
         if response.status_code == 401:
             st.error("❌ Falha de Autenticação. Verifique seu utilizador e senha.")
             return pd.DataFrame()
-
         if response.status_code != 200:
             st.error(f"❌ Erro na API ({response.status_code}): {response.text}")
             return pd.DataFrame()
 
-        res_data = response.json()
-        hits = res_data.get("hits", {}).get("hits", [])
-
+        hits = response.json().get("hits", {}).get("hits", [])
         if not hits:
             break
 
-        all_hits.extend(hits)
+        all_hits.extend([item["_source"] for item in hits])
         search_after = hits[-1].get("sort")
+        registros_extraidos += len(hits)
         
-        progresso_msg.info(f"⏳ Extraindo lotes da API... Total obtido até agora: **{len(all_hits):,}** registros.")
+        progress_bar.progress(min(registros_extraidos / 500000, 1.0), text=f"⏳ Extraindo... Total obtido: {registros_extraidos:,}")
 
-        if len(hits) < PAGE_SIZE:
+        if len(hits) < PAGE_SIZE_OTIMIZADO:
             break
-
-    progresso_msg.empty()
+            
+    progress_bar.empty()
+    session.close()
 
     if not all_hits:
         return pd.DataFrame()
 
-    # Aplicação de Nomes Amigáveis e Tratamento de Nulos
-    flat_data = [item["_source"] for item in all_hits]
-    df = pd.DataFrame(flat_data, columns=list(COLUNAS.keys()))
+    df = pd.DataFrame(all_hits)
     df = df.rename(columns=COLUNAS)
     
+    valores_nulos = ["NAN", "NONE", "", "NULL", "<NA>"]
+    
+    def limpar_coluna(serie, valor_padrao):
+        serie = serie.replace(valores_nulos, pd.NA)
+        return serie.fillna(valor_padrao).astype(str).str.strip().str.upper()
+
     if "Projeto" in df.columns:
-        df["Projeto"] = df["Projeto"].fillna("NÃO INFORMADO").astype(str).str.strip().str.upper()
-        df.loc[df["Projeto"].isin(["NAN", "NONE", "", "NULL"]), "Projeto"] = "NÃO INFORMADO"
+        df["Projeto"] = limpar_coluna(df["Projeto"], "NÃO INFORMADO")
         
     if "Status da Propriedade" in df.columns:
-        df["Status da Propriedade"] = df["Status da Propriedade"].fillna("NI").astype(str).str.strip().str.upper()
-        df.loc[df["Status da Propriedade"].isin(["NAN", "NONE", "", "NULL"]), "Status da Propriedade"] = "NI"
+        df["Status da Propriedade"] = limpar_coluna(df["Status da Propriedade"], "NI")
         
     if "Atividade" in df.columns:
-        df["Atividade"] = df["Atividade"].fillna("NÃO INFORMADO").astype(str).str.strip().str.upper()
-        df.loc[df["Atividade"].isin(["NAN", "NONE", "", "NULL"]), "Atividade"] = "NÃO INFORMADO"
+        df["Atividade"] = limpar_coluna(df["Atividade"], "NÃO INFORMADO")
 
     return df
 
@@ -268,7 +237,7 @@ def main():
     with col2:
         dt_fim = st.date_input("Data Final", value=None, format="DD/MM/YYYY")
 
-    # 2. Filtros de Alta Performance (Dropdowns)
+    # 2. Filtros de Alta Performance
     with st.expander("🎯 Filtros Opcionais de Performance (Direto na Fonte)", expanded=True):
         st.caption("Deixar como **TODOS** fará o sistema ignorar a regra e buscar a base completa do período.")
         f1, f2, f3 = st.columns(3)
@@ -280,29 +249,51 @@ def main():
             status_input = st.multiselect("Status Propriedade:", options=LISTA_STATUS, default=["TODOS"])
 
     if st.button("🚀 Iniciar Extração Otimizada", use_container_width=True):
+        
+        # ─── VALIDAÇÕES DE SEGURANÇA E PERFORMANCE ───
         if not usuario or not senha:
             st.warning("⚠️ Forneça suas credenciais na barra lateral.")
             st.stop()
         if dt_inicio is None or dt_fim is None:
             st.error("⚠️ As datas Inicial e Final são obrigatórias para não sobrecarregar o servidor.")
             st.stop()
+            
+        # Validação: Data invertida
+        if dt_fim < dt_inicio:
+            st.error("⚠️ A **Data Final** não pode ser anterior à **Data Inicial**.")
+            st.stop()
+            
+        # Validação: Limite de 6 meses (183 dias para margem segura)
+        dias_selecionados = (dt_fim - dt_inicio).days
+        if dias_selecionados > 183:
+            st.error(f"⚠️ **Período muito longo!** Você selecionou {dias_selecionados} dias. Para garantir a estabilidade e performance do sistema, o limite máximo de extração por vez é de **6 meses (183 dias)**. Por favor, ajuste as datas.")
+            st.stop()
+        # ─────────────────────────────────────────────
 
         try:
             str_inicio = dt_inicio.strftime('%Y-%m-%d')
             str_fim = dt_fim.strftime('%Y-%m-%d')
             
-            # Chama a função passando todos os parâmetros
-            df_result = buscar_dados_otimizados(
-                usuario, senha, str_inicio, str_fim, 
-                projeto_input, atividade_input, status_input
-            )
+            with st.spinner("Verificando dados em cache ou iniciando nova extração..."):
+                
+                # Inicia o cronômetro
+                inicio_timer = time.time()
+                
+                df_result = buscar_dados_otimizados(
+                    usuario, senha, str_inicio, str_fim, 
+                    projeto_input, atividade_input, status_input
+                )
+                
+                # Para o cronômetro
+                fim_timer = time.time()
+                tempo_gasto = fim_timer - inicio_timer
             
             st.session_state['df_visitas_otim'] = df_result
             
             if not df_result.empty:
-                st.success(f"✅ Carga concluída! O servidor entregou {len(df_result):,} registos devidamente filtrados.")
+                st.success(f"✅ **Carga concluída em {tempo_gasto:.2f} segundos!** O servidor entregou {len(df_result):,} registos devidamente filtrados.")
             else:
-                st.warning("Nenhum registro encontrado para essa combinação de filtros e datas.")
+                st.warning(f"⚠️ Nenhum registro encontrado para essa combinação (Busca finalizada em {tempo_gasto:.2f} segundos).")
                 
         except Exception as e:
             st.error(f"❌ Erro operacional: {e}")
