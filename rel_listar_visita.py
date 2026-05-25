@@ -135,7 +135,7 @@ def buscar_dados_otimizados(_usuario, _senha, dt_inicio, dt_fim, projeto_sel, at
     search_after = None
     
     # PAGE_SIZE reduzido para evitar travamento na deserialização
-    PAGE_SIZE_OTIMIZADO = 5000 
+    PAGE_SIZE_OTIMIZADO = 2000 
     
     filtros_elastic = [
         {"range": {"dt_visita": {"gte": dt_inicio, "lte": dt_fim, "format": "yyyy-MM-dd"}}}
