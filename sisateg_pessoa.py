@@ -184,10 +184,10 @@ def buscar_todos_os_registros(usuario: str, senha: str) -> pd.DataFrame:
 # ──────────────────────────────────────────────
 def main():
     with st.sidebar:
-        st.image(
-            "https://i.ibb.co/ZzLmGh8X/Logo-Senar-Preferencial-RGB.png",
-            width=160,
-        )
+        # st.image(
+        #     "https://i.ibb.co/ZzLmGh8X/Logo-Senar-Preferencial-RGB.png",
+        #     width=160,
+        # )
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader("🔐 Autenticação")
         usuario = st.text_input("Usuário", placeholder="Ex: fernando.cruz")
@@ -195,7 +195,7 @@ def main():
         st.divider()
         st.caption("Acesso à base corporativa `sisateg_pessoa`")
 
-    st.title("📋 Painel SISATEG — Pessoas")
+    st.title("SISATEG — Pessoas")
     st.markdown("Consulte e exporte a base de dados completa de cadastros integrados ao sistema.")
     st.markdown("<br>", unsafe_allow_html=True)
 

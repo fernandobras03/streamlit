@@ -219,7 +219,7 @@ def buscar_dados_otimizados(_usuario, _senha, dt_inicio, dt_fim, projeto_sel, at
 # ──────────────────────────────────────────────
 def main():
     with st.sidebar:
-        st.image("https://i.ibb.co/ZzLmGh8X/Logo-Senar-Preferencial-RGB.png", width=150)
+        #st.image("https://i.ibb.co/ZzLmGh8X/Logo-Senar-Preferencial-RGB.png", width=150)
         st.subheader("🔐 Autenticação")
         usuario = st.text_input("Utilizador", placeholder="Ex: fernando.cruz")
         senha = st.text_input("Senha", type="password")
