@@ -105,7 +105,7 @@ def tela_login():
             bottom: 0;
             left: 0;
             width: 100%;
-            background-color: #006C4C; /* Tom super escuro da cor principal */
+            background-color: #00281c; /* Tom super escuro da cor principal */
             color: #ffffff;
             text-align: center;
             padding: 12px 0;
