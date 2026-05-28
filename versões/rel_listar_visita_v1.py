@@ -9,7 +9,12 @@ import time
 # ──────────────────────────────────────────────
 # Configuração da Página
 # ──────────────────────────────────────────────
-
+st.set_page_config(
+    page_title="Relatório listar visita",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 # Estilização visual (Clean & Light)
 st.markdown("""
@@ -213,12 +218,13 @@ def buscar_dados_otimizados(_usuario, _senha, dt_inicio, dt_fim, projeto_sel, at
 # Interface e Funcionalidade
 # ──────────────────────────────────────────────
 def main():
-    if "logado" not in st.session_state or not st.session_state.logado:
-        st.warning("⚠️ Sessão expirada ou acesso inválido. Por favor, retorne à página inicial e faça login.")
-        st.stop() # Para a execução do código aqui
-
-    usuario = st.session_state.usuario
-    senha = st.session_state.senha
+    with st.sidebar:
+        #st.image("https://i.ibb.co/ZzLmGh8X/Logo-Senar-Preferencial-RGB.png", width=150)
+        st.subheader("🔐 Autenticação")
+        usuario = st.text_input("Utilizador", placeholder="Ex: fernando.cruz")
+        senha = st.text_input("Senha", type="password")
+        st.divider()
+        st.caption("Acesso à base `sisateg_rel_listar_visita`.")
 
     st.title("Relatório de visitas")
     st.markdown("Busque os dados do período na API. Depois de carregados, utilize a seção abaixo para filtrar os resultados instantaneamente.")

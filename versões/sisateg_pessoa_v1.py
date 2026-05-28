@@ -4,6 +4,15 @@ import requests
 from requests.auth import HTTPBasicAuth
 import io
 
+# ──────────────────────────────────────────────
+# Configuração da Página
+# ──────────────────────────────────────────────
+st.set_page_config(
+    page_title="CNA · SISATEG (Pessoas)",
+    page_icon="🏢",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 # ──────────────────────────────────────────────
 # Estilos Customizados (UI/UX Clean & Contraste)
@@ -174,14 +183,19 @@ def buscar_todos_os_registros(usuario: str, senha: str) -> pd.DataFrame:
 # Interface e Fluxo Principal
 # ──────────────────────────────────────────────
 def main():
-    if "logado" not in st.session_state or not st.session_state.logado:
-        st.warning("⚠️ Sessão expirada ou acesso inválido. Por favor, retorne à página inicial e faça login.")
-        st.stop() # Para a execução do código aqui
-    
-    usuario = st.session_state.usuario
-    senha = st.session_state.senha
+    with st.sidebar:
+        # st.image(
+        #     "https://i.ibb.co/ZzLmGh8X/Logo-Senar-Preferencial-RGB.png",
+        #     width=160,
+        # )
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("🔐 Autenticação")
+        usuario = st.text_input("Usuário", placeholder="Ex: fernando.cruz")
+        senha = st.text_input("Senha", type="password", placeholder="••••••••")
+        st.divider()
+        st.caption("Acesso à base corporativa `sisateg_pessoa`")
 
-    st.title("SISATEG - Pessoas")
+    st.title("SISATEG — Pessoas")
     st.markdown("Consulte e exporte a base de dados completa de cadastros integrados ao sistema.")
     st.markdown("<br>", unsafe_allow_html=True)
 
