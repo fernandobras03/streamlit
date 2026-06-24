@@ -207,11 +207,12 @@ else:
     home = st.Page(pagina_inicial, title="Início", icon="🏠", default=True)
     relatorio_1 = st.Page("rel_listar_visita.py", title="Relatório Listar Visitas", icon="📈")
     relatorio_2 = st.Page("sisateg_pessoa.py", title="Relatório Pessoas", icon="👥")
+    relatorio_3 = st.Page("construtor.py", title="Construtor de Relatórios", icon="🛠️")
     
     pg = st.navigation(
         {
             "Navegação": [home],
-            "Relatórios Disponíveis": [relatorio_1, relatorio_2]
+            "Relatórios Disponíveis": [relatorio_1, relatorio_2, relatorio_3]
         }
     )
 
