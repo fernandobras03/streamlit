@@ -46,7 +46,8 @@ COLUNAS_MAP = {
     "visita_retorno": "Visita de Retorno",
     "visita_valida": "Visita Válida",
     "visita_virtual": "Visita Virtual",
-    "visita_zero": "Visita Zero"
+    "visita_zero": "Visita Zero",
+    "uf_regional": "UF Regional"
 }
 
 # Criamos um mapa reverso para o sistema saber qual é o nome no banco de dados
