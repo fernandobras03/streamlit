@@ -123,6 +123,24 @@ def extrair_relatorio_dinamico(usuario, senha, dt_inicio, dt_fim, colunas_intern
     
     # Renomeia para os nomes amigáveis e reordena conforme a escolha do usuário
     df.rename(columns=COLUNAS_MAP, inplace=True)
+    
+    # ── TRATAMENTO DE DATAS PARA DD/MM/AAAA ──
+    # Lista de todas as colunas que são datas
+    colunas_de_data = [
+        "Data da Visita", "Data Alteração Geral", "Data Alteração Visita",
+        "Data Check-in", "Data Check-out", "Data Exclusão Visita",
+        "Data Primeira Visita Projeto", "Data Visita Min"
+    ]
+    
+    # Passa em cada coluna de data e formata, caso ela tenha sido selecionada
+    for col in colunas_de_data:
+        if col in df.columns:
+            # Converte para data e formata. errors='coerce' ignora valores vazios sem quebrar o código
+            df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%d/%m/%Y')
+            # Remove a palavra 'NaT' que o pandas coloca quando a data é nula
+            df[col] = df[col].replace('NaT', '')
+            df[col] = df[col].fillna('')
+
     return df[colunas_amigaveis]
 
 # ──────────────────────────────────────────────
